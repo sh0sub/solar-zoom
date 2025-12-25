@@ -65,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _showFocus = false;
   Timer? _focusTimer;
   double _baseZoom = 1.0;
+  bool _isScaling = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -124,29 +125,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
                   return GestureDetector(
                     onScaleStart: (details) {
+                      _isScaling = true;
                       _baseZoom = camera.currentZoom;
+                      // Hide focus if it was accidentally shown
+                      if (_showFocus) {
+                        setState(() {
+                          _showFocus = false;
+                        });
+                      }
                     },
                     onScaleUpdate: (details) {
-                      // Calculate new zoom with damping for smoother control
-                      // Or direct scale multiplication
                       double newZoom = _baseZoom * details.scale;
-                      
-                      // Optional: Add sensitivity factor if needed
-                      // double sensitivity = 1.0;
-                      // newZoom = _baseZoom + (details.scale - 1) * sensitivity * 2; // Linear feel??
-                      
-                      // Multiplicative is more natural for zoom:
                       if (newZoom < camera.minZoom) newZoom = camera.minZoom;
                       if (newZoom > camera.maxZoom) newZoom = camera.maxZoom;
-                      
-                      // Throttle slightly if performance issue, but usually setZoom is cheap
                       camera.setZoom(newZoom);
                     },
+                    onScaleEnd: (details) {
+                      // Slight delay to prevent tap from firing immediately after pinch lift
+                      Future.delayed(const Duration(milliseconds: 300), () {
+                        if (mounted) _isScaling = false;
+                      });
+                    },
                     onTapUp: (details) {
-                      // Move focus logic to onTapUp to avoid triggering during Pinch Zoom
-                      // Adjust tap coordinates for scaled preview is complex, 
-                      // but focusing usually works ok with center weighting or raw ratio.
-                      // For MVP, passing relative coordinates of the visible widget is enough.
+                      if (_isScaling) return; // Ignore tap if part of a pinch
+
                       final offset = Offset(
                         details.localPosition.dx / constraints.maxWidth,
                         details.localPosition.dy / constraints.maxHeight,
@@ -161,13 +163,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       
                       _focusTimer?.cancel();
                       _focusTimer = Timer(const Duration(seconds: 2), () {
-                        if (mounted) {
-                          setState(() {
-                            _showFocus = false;
-                          });
-                        }
-                      });
-                    },
                         if (mounted) {
                           setState(() {
                             _showFocus = false;
