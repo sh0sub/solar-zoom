@@ -1,0 +1,15 @@
+dev_dependencies:
+  flutter_launcher_icons: "^0.13.1"
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21
+  # adaptive_icon_background: "#FFFFFF" # Removed to let the image gradient fill
+  # adaptive_icon_foreground: "assets/icon/icon.png" # Simple image path for now
+  # For adaptive icons, usually we need foreground/background split, 
+  # but for simplicity we will use the full image for both if possible or just standard configuration.
+  # Let's use the standard configuration which automatically scales.
+  adaptive_icon_background: "#000000" # Fallback color
+  adaptive_icon_foreground: "assets/icon/icon.png"
