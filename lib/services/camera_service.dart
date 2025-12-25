@@ -29,7 +29,7 @@ class CameraService extends ChangeNotifier {
 
         _controller = CameraController(
           backCamera,
-          ResolutionPreset.high, // Good balance for performance and quality
+          ResolutionPreset.max, // Highest quality for magnifier
           enableAudio: false,
         );
 
