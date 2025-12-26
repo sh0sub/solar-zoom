@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:senior_magnifier/screens/freeze_screen.dart';
-import 'package:senior_magnifier/screens/smart_mode_screen.dart';
 import 'package:senior_magnifier/services/camera_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -89,14 +88,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         MaterialPageRoute(builder: (context) => FreezeScreen(imageFile: file)),
       );
     }
-  }
-
-  void _onSmartPressed() {
-    HapticFeedback.mediumImpact();
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const SmartModeScreen()),
-    );
   }
 
   void _onFlashPressed() {
@@ -284,13 +275,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             onTap: _onFreezePressed,
                           ),
                           
-                          // Smart AI Button
-                          _buildModernButton(
-                            context,
-                            icon: Icons.search, // Changed to Search icon for modern feel
-                            label: "AI 읽기",
-                            onTap: _onSmartPressed,
-                          ),
+                          // Spacer to balance the row since we removed the 3rd button
+                          // Or we can center the 2 buttons.
+                          // Let's just create an empty sizedbox of width 64 to keep layout balanced?
+                          // Or better: Just show 2 buttons. MainAxisAlignment.spaceEvenly is better?
+                          // The row is MainAxisAlignment.spaceBetween.
+                          // If we have only 2 items, spaceBetween sends them to edges.
+                          // Let's change Row to MainAxisAlignment.spaceEvenly or center.
+                          // Actually, Flash - Freeze - (Empty).
+                          // Let's use a dummy SizedBox for balance if we want Freeze in center.
+                          const SizedBox(width: 64),
                         ],
                       ),
                     ],

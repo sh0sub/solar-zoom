@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:camera/camera.dart';
+import 'package:camera/camera.dart'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:provider/provider.dart';
-import 'package:senior_magnifier/services/camera_service.dart';
 import 'package:senior_magnifier/services/ocr_service.dart';
 import 'package:senior_magnifier/services/tts_service.dart';
 
 class SmartModeScreen extends StatefulWidget {
-  const SmartModeScreen({super.key});
+  final String? initialImagePath;
+
+  const SmartModeScreen({super.key, this.initialImagePath});
 
   @override
   State<SmartModeScreen> createState() => _SmartModeScreenState();
@@ -18,14 +19,18 @@ class SmartModeScreen extends StatefulWidget {
 class _SmartModeScreenState extends State<SmartModeScreen> {
   final OCRService _ocrService = OCRService();
   final TTSService _ttsService = TTSService();
+  final TransformationController _transformationController = TransformationController(); // For Zoom Slider
   
   XFile? _capturedImage;
   RecognizedText? _recognizedText;
   bool _isProcessing = false;
-  bool _isPlaying = false; // State to track TTS status
   
   // Use ValueNotifier to sync state with Modal Sheet
   final ValueNotifier<bool> _isPlayingNotifier = ValueNotifier<bool>(false);
+
+  // State for image dimensions
+  Size? _imageSize; // Original image size
+  double _currentScale = 1.0; 
 
   @override
   void initState() {
@@ -34,6 +39,10 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     _ttsService.setCompletionHandler(() {
       _isPlayingNotifier.value = false;
     });
+
+    if (widget.initialImagePath != null) {
+      _processInitialImage(widget.initialImagePath!);
+    }
   }
 
   @override
@@ -41,58 +50,39 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     _ocrService.dispose();
     _ttsService.stop();
     _isPlayingNotifier.dispose();
+    _transformationController.dispose();
     super.dispose();
   }
 
-
-
-  // State for image dimensions
-  Size? _imageSize; // Original image size
-  
-  // ... existing methods ...
-
-  Future<void> _captureAndAnalyze() async {
-    final cameraService = context.read<CameraService>();
-    if (!cameraService.isInitialized) return;
-
+  Future<void> _processInitialImage(String path) async {
     setState(() {
       _isProcessing = true;
+      _capturedImage = XFile(path);
     });
 
-    HapticFeedback.mediumImpact();
-    final image = await cameraService.takePicture();
+    final file = File(path);
+    final decodedImage = await decodeImageFromList(file.readAsBytesSync());
+    
+    setState(() {
+      _imageSize = Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
+    });
 
-    if (image != null) {
-      // Decode image to get dimensions
-      final file = File(image.path);
-      final decodedImage = await decodeImageFromList(file.readAsBytesSync());
-      
-      setState(() {
-        _capturedImage = image;
-        _imageSize = Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
-      });
-
-      final text = await _ocrService.processImage(image);
+    final image = XFile(path); // Re-create XFile
+    final text = await _ocrService.processImage(image);
+    
+    if (mounted) {
       setState(() {
         _recognizedText = text;
         _isProcessing = false;
       });
 
       if (text == null || text.text.isEmpty) {
-        if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text("글자를 찾을 수 없어요. 다시 찍어주세요.", style: TextStyle(fontSize: 20))),
-           );
-           _reset();
-        }
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(content: Text("글자를 찾을 수 없어요.", style: TextStyle(fontSize: 20))),
+         );
       } else {
-         // Auto-guidance
          _ttsService.speak("원하는 글자를 터치하면 읽어드립니다.");
       }
-    } else {
-      setState(() {
-        _isProcessing = false;
-      });
     }
   }
 
@@ -108,22 +98,9 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
 
     // Calculate scale for BoxFit.cover
     if (screenAspectRatio > imageAspectRatio) {
-      // Screen is wider/shorter relative to image -> Scale to fit Width (Cover width)
-      // Actually BoxFit.cover:
-      // If Screen is TAINT (taller), we scale by Height.
-      // If Screen is WIDER, we scale by Width.
-      
-      // Let's re-evaluate BoxFit.cover logic:
-      // Scale is max(screenW / imageW, screenH / imageH)
-      scale = screenAspectRatio > imageAspectRatio 
-          ? screenSize.width / _imageSize!.width 
-          : screenSize.height / _imageSize!.height;
+      scale = screenSize.width / _imageSize!.width;
     } else {
-       // logic above handles both.
-       // Wait, let's stick to standard cover logic.
-       double scaleX = screenSize.width / _imageSize!.width;
-       double scaleY = screenSize.height / _imageSize!.height;
-       scale = scaleX > scaleY ? scaleX : scaleY;
+      scale = screenSize.height / _imageSize!.height;
     }
 
     // Centering offsets
@@ -263,60 +240,42 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
       _isPlayingNotifier.value = false;
     });
   }
- 
-  void _reset() {
-    setState(() {
-      _capturedImage = null;
-      _recognizedText = null;
-    });
-  }
-  // ... existing methods ...
 
   @override
   Widget build(BuildContext context) {
-    final cameraService = context.watch<CameraService>();
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Content Layer (Image or Camera)
+          // 1. Content Layer (Image Viewer)
           if (_capturedImage != null)
              LayoutBuilder(
               builder: (context, constraints) {
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(File(_capturedImage!.path), fit: BoxFit.cover), // Changed to cover
-                    // Overlay Bounding Boxes
-                    ..._buildBoundingBoxes(Size(constraints.maxWidth, constraints.maxHeight)),
-                  ],
+                return InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: 1.0,
+                  maxScale: 5.0,
+                  onInteractionUpdate: (details) {
+                    setState(() {
+                      _currentScale = _transformationController.value.getMaxScaleOnAxis();
+                    });
+                  },
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.file(File(_capturedImage!.path), fit: BoxFit.cover),
+                      // Overlay Bounding Boxes
+                      ..._buildBoundingBoxes(Size(constraints.maxWidth, constraints.maxHeight)),
+                    ],
+                  ),
                 );
               },
             )
-             else if (cameraService.isInitialized && cameraService.controller != null)
-             LayoutBuilder(
-               builder: (context, constraints) {
-                 final size = MediaQuery.of(context).size;
-                 var scale = size.aspectRatio * cameraService.controller!.value.aspectRatio;
-                 if (scale < 1) scale = 1 / scale;
-                 
-                 return ClipRect(
-                   child: Transform.scale(
-                     scale: scale,
-                     alignment: Alignment.center,
-                     child: Center(
-                        child: CameraPreview(cameraService.controller!),
-                     ),
-                   ),
-                 );
-               },
-             )
-          else
-             const Center(child: CircularProgressIndicator()),
+          else 
+             const Center(child: CircularProgressIndicator()), // Should always have image or be processing
 
-          // 2. Overlay Layer (Close Button, Capture Button, etc.)
+          // 2. Overlay Layer (Close Button)
           Positioned(
             top: 50, left: 20,
             child: SizedBox(
@@ -328,35 +287,69 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
               ),
             ),
           ),
-
-          // Capture Button (Only when not captured)
-          if (_capturedImage == null)
-            Positioned(
-              bottom: 50, left: 0, right: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: _captureAndAnalyze,
-                  child: Container(
-                    width: 80, height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Theme.of(context).primaryColor,
-                      boxShadow: [
-                        BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.4), blurRadius: 20, spreadRadius: 2),
-                      ],
-                    ),
-                    child: const Icon(Icons.search, color: Colors.white, size: 40),
+            
+          // Zoom Slider Overlay
+          if (_capturedImage != null)
+              Positioned(
+                bottom: 150, 
+                left: 20, 
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(30)
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, size: 32, color: Colors.white),
+                        onPressed: () {
+                           HapticFeedback.mediumImpact();
+                           final newScale = (_currentScale - 0.5).clamp(1.0, 5.0);
+                           setState(() {
+                             _currentScale = newScale;
+                             _transformationController.value = Matrix4.identity()..scale(newScale);
+                           });
+                        },
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: _currentScale,
+                          min: 1.0,
+                          max: 5.0,
+                          activeColor: Theme.of(context).primaryColor,
+                          inactiveColor: Colors.white24,
+                          onChanged: (value) {
+                            setState(() {
+                              _currentScale = value;
+                              _transformationController.value = Matrix4.identity()..scale(value);
+                            });
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, size: 32, color: Colors.white),
+                        onPressed: () {
+                           HapticFeedback.mediumImpact();
+                           final newScale = (_currentScale + 0.5).clamp(1.0, 5.0);
+                           setState(() {
+                             _currentScale = newScale;
+                             _transformationController.value = Matrix4.identity()..scale(newScale);
+                           });
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
             
-          // Retake Button (Only when captured)
+          // Retake Button
           if (_capturedImage != null)
              Positioned(
               bottom: 50, right: 20,
               child: TextButton.icon(
-                onPressed: _reset,
+                onPressed: () => Navigator.pop(context), // Just pop to retake
                 icon: const Icon(Icons.refresh, color: Colors.white),
                 label: const Text("다시 찍기", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 style: TextButton.styleFrom(backgroundColor: Colors.black45, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),

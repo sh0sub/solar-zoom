@@ -2,6 +2,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
+import 'package:senior_magnifier/screens/smart_mode_screen.dart';
 
 class FreezeScreen extends StatefulWidget {
   final XFile imageFile;
@@ -51,6 +52,7 @@ class _FreezeScreenState extends State<FreezeScreen> {
             ),
           ),
 
+
           // 2. UI Overlay (Back Button)
           Positioned(
             top: 50,
@@ -64,6 +66,33 @@ class _FreezeScreenState extends State<FreezeScreen> {
                   shape: const CircleBorder()
                 ),
                 onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ),
+
+          // 2.5 "Read Text" Button (New Entry Point)
+          Positioned(
+            bottom: 150, 
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                   HapticFeedback.mediumImpact();
+                   Navigator.push(
+                     context,
+                     MaterialPageRoute(builder: (context) => SmartModeScreen(initialImagePath: widget.imageFile.path)),
+                   );
+                },
+                icon: const Icon(Icons.search, size: 28),
+                label: const Text("글자 읽기", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  elevation: 8,
+                ),
               ),
             ),
           ),
