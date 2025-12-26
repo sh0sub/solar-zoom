@@ -106,17 +106,29 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     double scale;
     double offsetX, offsetY;
 
+    // Calculate scale for BoxFit.cover
     if (screenAspectRatio > imageAspectRatio) {
-      // Screen is wider than image (Image fits height)
-      scale = screenSize.height / _imageSize!.height;
-      offsetX = (screenSize.width - (_imageSize!.width * scale)) / 2;
-      offsetY = 0;
+      // Screen is wider/shorter relative to image -> Scale to fit Width (Cover width)
+      // Actually BoxFit.cover:
+      // If Screen is TAINT (taller), we scale by Height.
+      // If Screen is WIDER, we scale by Width.
+      
+      // Let's re-evaluate BoxFit.cover logic:
+      // Scale is max(screenW / imageW, screenH / imageH)
+      scale = screenAspectRatio > imageAspectRatio 
+          ? screenSize.width / _imageSize!.width 
+          : screenSize.height / _imageSize!.height;
     } else {
-      // Screen is taller than image (Image fits width)
-      scale = screenSize.width / _imageSize!.width;
-      offsetX = 0;
-      offsetY = (screenSize.height - (_imageSize!.height * scale)) / 2;
+       // logic above handles both.
+       // Wait, let's stick to standard cover logic.
+       double scaleX = screenSize.width / _imageSize!.width;
+       double scaleY = screenSize.height / _imageSize!.height;
+       scale = scaleX > scaleY ? scaleX : scaleY;
     }
+
+    // Centering offsets
+    offsetX = (screenSize.width - (_imageSize!.width * scale)) / 2;
+    offsetY = (screenSize.height - (_imageSize!.height * scale)) / 2;
 
     return _recognizedText!.blocks.map((block) {
       final rect = block.boundingBox;
@@ -251,13 +263,14 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
       _isPlayingNotifier.value = false;
     });
   }
-
+ 
   void _reset() {
     setState(() {
       _capturedImage = null;
       _recognizedText = null;
     });
   }
+  // ... existing methods ...
 
   @override
   Widget build(BuildContext context) {
@@ -275,15 +288,31 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(File(_capturedImage!.path), fit: BoxFit.contain),
+                    Image.file(File(_capturedImage!.path), fit: BoxFit.cover), // Changed to cover
                     // Overlay Bounding Boxes
                     ..._buildBoundingBoxes(Size(constraints.maxWidth, constraints.maxHeight)),
                   ],
                 );
               },
             )
-          else if (cameraService.isInitialized && cameraService.controller != null)
-             CameraPreview(cameraService.controller!)
+             else if (cameraService.isInitialized && cameraService.controller != null)
+             LayoutBuilder(
+               builder: (context, constraints) {
+                 final size = MediaQuery.of(context).size;
+                 var scale = size.aspectRatio * cameraService.controller!.value.aspectRatio;
+                 if (scale < 1) scale = 1 / scale;
+                 
+                 return ClipRect(
+                   child: Transform.scale(
+                     scale: scale,
+                     alignment: Alignment.center,
+                     child: Center(
+                        child: CameraPreview(cameraService.controller!),
+                     ),
+                   ),
+                 );
+               },
+             )
           else
              const Center(child: CircularProgressIndicator()),
 
