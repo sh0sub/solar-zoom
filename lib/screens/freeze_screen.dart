@@ -23,10 +23,21 @@ class _FreezeScreenState extends State<FreezeScreen> {
     super.dispose();
   }
 
-  void _setScale(double scale) {
+  void _setScale(double newScale) {
+    double targetScale = newScale.clamp(1.0, 10.0);
+    double scaleFactor = targetScale / _currentScale;
+    
+    // Center of viewport
+    final double cx = MediaQuery.of(context).size.width / 2;
+    final double cy = MediaQuery.of(context).size.height / 2;
+
     setState(() {
-      _currentScale = scale.clamp(1.0, 10.0);
-      _transformationController.value = Matrix4.identity()..scale(_currentScale);
+      _currentScale = targetScale;
+      final Matrix4 matrix = _transformationController.value.clone();
+      matrix.translate(cx, cy);
+      matrix.scale(scaleFactor);
+      matrix.translate(-cx, -cy);
+      _transformationController.value = matrix;
     });
   }
 

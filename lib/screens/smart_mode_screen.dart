@@ -86,6 +86,22 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     }
   }
 
+  void _updateZoom(double newScale) {
+    final double prevScale = _currentScale;
+    final double scaleFactor = newScale / prevScale;
+    final double cx = MediaQuery.of(context).size.width / 2;
+    final double cy = MediaQuery.of(context).size.height / 2;
+
+    setState(() {
+      _currentScale = newScale;
+      final Matrix4 matrix = _transformationController.value.clone();
+      matrix.translate(cx, cy);
+      matrix.scale(scaleFactor);
+      matrix.translate(-cx, -cy);
+      _transformationController.value = matrix;
+    });
+  }
+
   // Helper to build bounding boxes
   List<Widget> _buildBoundingBoxes(Size screenSize) {
     if (_recognizedText == null || _imageSize == null) return [];
@@ -307,10 +323,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                         onPressed: () {
                            HapticFeedback.mediumImpact();
                            final newScale = (_currentScale - 0.5).clamp(1.0, 5.0);
-                           setState(() {
-                             _currentScale = newScale;
-                             _transformationController.value = Matrix4.identity()..scale(newScale);
-                           });
+                           _updateZoom(newScale);
                         },
                       ),
                       Expanded(
@@ -321,10 +334,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                           activeColor: Theme.of(context).primaryColor,
                           inactiveColor: Colors.white24,
                           onChanged: (value) {
-                            setState(() {
-                              _currentScale = value;
-                              _transformationController.value = Matrix4.identity()..scale(value);
-                            });
+                            _updateZoom(value);
                           },
                         ),
                       ),
@@ -333,10 +343,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                         onPressed: () {
                            HapticFeedback.mediumImpact();
                            final newScale = (_currentScale + 0.5).clamp(1.0, 5.0);
-                           setState(() {
-                             _currentScale = newScale;
-                             _transformationController.value = Matrix4.identity()..scale(newScale);
-                           });
+                           _updateZoom(newScale);
                         },
                       ),
                     ],
