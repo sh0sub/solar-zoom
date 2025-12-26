@@ -46,6 +46,11 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
 
 
 
+  // State for image dimensions
+  Size? _imageSize; // Original image size
+  
+  // ... existing methods ...
+
   Future<void> _captureAndAnalyze() async {
     final cameraService = context.read<CameraService>();
     if (!cameraService.isInitialized) return;
@@ -58,8 +63,13 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     final image = await cameraService.takePicture();
 
     if (image != null) {
+      // Decode image to get dimensions
+      final file = File(image.path);
+      final decodedImage = await decodeImageFromList(file.readAsBytesSync());
+      
       setState(() {
         _capturedImage = image;
+        _imageSize = Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
       });
 
       final text = await _ocrService.processImage(image);
@@ -68,17 +78,16 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
         _isProcessing = false;
       });
 
-      if (text != null && text.text.isNotEmpty) {
-        _showResultSheet(text.text);
-      } else {
+      if (text == null || text.text.isEmpty) {
         if (mounted) {
            ScaffoldMessenger.of(context).showSnackBar(
              const SnackBar(content: Text("글자를 찾을 수 없어요. 다시 찍어주세요.", style: TextStyle(fontSize: 20))),
            );
-           setState(() {
-             _capturedImage = null; // Go back to preview
-           });
+           _reset();
         }
+      } else {
+         // Auto-guidance
+         _ttsService.speak("원하는 글자를 터치하면 읽어드립니다.");
       }
     } else {
       setState(() {
@@ -87,9 +96,63 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     }
   }
 
+  // Helper to build bounding boxes
+  List<Widget> _buildBoundingBoxes(Size screenSize) {
+    if (_recognizedText == null || _imageSize == null) return [];
+
+    final double imageAspectRatio = _imageSize!.width / _imageSize!.height;
+    final double screenAspectRatio = screenSize.width / screenSize.height;
+    
+    double scale;
+    double offsetX, offsetY;
+
+    if (screenAspectRatio > imageAspectRatio) {
+      // Screen is wider than image (Image fits height)
+      scale = screenSize.height / _imageSize!.height;
+      offsetX = (screenSize.width - (_imageSize!.width * scale)) / 2;
+      offsetY = 0;
+    } else {
+      // Screen is taller than image (Image fits width)
+      scale = screenSize.width / _imageSize!.width;
+      offsetX = 0;
+      offsetY = (screenSize.height - (_imageSize!.height * scale)) / 2;
+    }
+
+    return _recognizedText!.blocks.map((block) {
+      final rect = block.boundingBox;
+      
+      return Positioned(
+        left: rect.left * scale + offsetX,
+        top: rect.top * scale + offsetY,
+        width: rect.width * scale,
+        height: rect.height * scale,
+        child: GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _showResultSheet(block.text); // Show sheet for specific block
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).colorScheme.secondary, width: 3), // Lime Yellow
+              color: Theme.of(context).colorScheme.secondary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 2,
+                  spreadRadius: 0,
+                )
+              ]
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
   void _showResultSheet(String text) {
     // Play guidance voice immediately
-    _ttsService.speak("글자를 찾았습니다. 내용을 들으시려면 아래 주황색 버튼을 눌러주세요.");
+    _ttsService.speak("글자를 찾았습니다. 내용을 확인하세요.");
 
     showModalBottomSheet(
       context: context,
@@ -198,58 +261,59 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Shared camera controller from provider
     final cameraService = context.watch<CameraService>();
 
     return Scaffold(
-      backgroundColor: Colors.black, // Camera BG always black
+      backgroundColor: Colors.black,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // 1. Content Layer
+          // 1. Content Layer (Image or Camera)
           if (_capturedImage != null)
-            Image.file(File(_capturedImage!.path), fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+             LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.file(File(_capturedImage!.path), fit: BoxFit.contain),
+                    // Overlay Bounding Boxes
+                    ..._buildBoundingBoxes(Size(constraints.maxWidth, constraints.maxHeight)),
+                  ],
+                );
+              },
+            )
           else if (cameraService.isInitialized && cameraService.controller != null)
              CameraPreview(cameraService.controller!)
           else
              const Center(child: CircularProgressIndicator()),
 
-          // 3. UI Layer
+          // 2. Overlay Layer (Close Button, Capture Button, etc.)
           Positioned(
-            top: 50,
-            left: 20,
+            top: 50, left: 20,
             child: SizedBox(
                width: 50, height: 50,
                child: IconButton(
                 icon: const Icon(Icons.close, size: 32, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black45, 
-                  shape: const CircleBorder()
-                ),
+                style: IconButton.styleFrom(backgroundColor: Colors.black45, shape: const CircleBorder()),
                 onPressed: () => Navigator.pop(context),
               ),
             ),
           ),
 
+          // Capture Button (Only when not captured)
           if (_capturedImage == null)
             Positioned(
-              bottom: 50,
-              left: 0,
-              right: 0,
+              bottom: 50, left: 0, right: 0,
               child: Center(
                 child: GestureDetector(
                   onTap: _captureAndAnalyze,
                   child: Container(
-                    width: 80,
-                    height: 80,
+                    width: 80, height: 80,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Theme.of(context).primaryColor,
                       boxShadow: [
-                        BoxShadow(
-                          color: Theme.of(context).primaryColor.withOpacity(0.4),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
+                        BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.4), blurRadius: 20, spreadRadius: 2),
                       ],
                     ),
                     child: const Icon(Icons.search, color: Colors.white, size: 40),
@@ -258,21 +322,19 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
               ),
             ),
             
+          // Retake Button (Only when captured)
           if (_capturedImage != null)
              Positioned(
-              top: 50,
-              right: 20,
+              bottom: 50, right: 20,
               child: TextButton.icon(
                 onPressed: _reset,
                 icon: const Icon(Icons.refresh, color: Colors.white),
                 label: const Text("다시 찍기", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.black45,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-                ),
+                style: TextButton.styleFrom(backgroundColor: Colors.black45, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
               )
              ),
 
+          // Loading Indicator
           if (_isProcessing)
             Container(
               color: Colors.black54,
@@ -282,10 +344,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                   children: [
                     CircularProgressIndicator(color: Theme.of(context).primaryColor),
                     const SizedBox(height: 24),
-                    Text(
-                      "글자를 읽고 있어요...", 
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)
-                    ),
+                    Text("글자를 읽고 있어요...", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
                   ],
                 ),
               ),
