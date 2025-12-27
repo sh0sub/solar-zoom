@@ -356,7 +356,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
              Positioned(
               bottom: 50, right: 20,
               child: TextButton.icon(
-                onPressed: () => Navigator.pop(context), // Just pop to retake
+                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst), // Pop back to Home
                 icon: const Icon(Icons.refresh, color: Colors.white),
                 label: const Text("다시 찍기", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 style: TextButton.styleFrom(backgroundColor: Colors.black45, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
