@@ -173,7 +173,12 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
               valueListenable: _isPlayingNotifier,
               builder: (context, isPlaying, child) {
                 return Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.only(
+                    top: 24, 
+                    left: 24, 
+                    right: 24, 
+                    bottom: 24 + MediaQuery.of(context).padding.bottom
+                  ),
                   height: MediaQuery.of(context).size.height * 0.55, 
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
