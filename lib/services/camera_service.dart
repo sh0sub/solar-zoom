@@ -36,6 +36,7 @@ class CameraService extends ChangeNotifier {
         await _controller!.initialize();
         
         _minZoom = await _controller!.getMinZoomLevel();
+        if (_minZoom < 1.0) _minZoom = 1.0; // Restrict ultra-wide (0.5x) to prevent confusion
         _maxZoom = await _controller!.getMaxZoomLevel();
         // Cap max zoom to avoid extreme graininess
         if (_maxZoom > 8.0) _maxZoom = 8.0; 

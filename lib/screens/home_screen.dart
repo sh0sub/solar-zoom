@@ -85,7 +85,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (file != null && mounted) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => FreezeScreen(imageFile: file)),
+        MaterialPageRoute(builder: (context) => FreezeScreen(
+          imageFile: file,
+          initialZoom: cameraService.currentZoom,
+        )),
       );
     }
   }
