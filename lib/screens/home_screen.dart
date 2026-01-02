@@ -94,11 +94,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     
     if (_isFrozen) {
       // Resume
-      cameraService.resumePreview();
-      await cameraService.setZoom(1.0); // Reset Zoom
+      // Run Zoom Reset and Resume in parallel to minimize delay/stutter
+      await Future.wait([
+        cameraService.setZoom(1.0),
+        cameraService.resumePreview(),
+      ]);
+      
       setState(() { 
         _isFrozen = false; 
-        _capturedImage = null; // Clear captured image
+        _capturedImage = null; 
       });
     } else {
       // FREEZE: Take picture immediately!
@@ -106,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final file = await cameraService.takePicture();
         if (file == null) return;
 
-        // Pause preview after capture to stop battery drain (optional, but good)
+        // Pause preview after capture to stop battery drain
         cameraService.pausePreview();
         
         // Initialize frozen state
@@ -138,10 +142,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         )),
       );
       
-      // When returning, resume and reset zoom
+      // When returning, resume and reset zoom parallel
       if (mounted) {
-        cameraService.resumePreview();
-        await cameraService.setZoom(1.0); // Reset Zoom
+        await Future.wait([
+          cameraService.setZoom(1.0),
+          cameraService.resumePreview(),
+        ]);
+        
         setState(() { 
           _isFrozen = false; 
           _capturedImage = null;
