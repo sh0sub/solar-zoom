@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -69,7 +70,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   
   // New State: Freeze Mode
   bool _isFrozen = false;
-  double _frozenZoom = 1.0; // The virtual zoom level during freeze
+  double _frozenZoom = 1.0; 
+  XFile? _capturedImage; // Store the frozen captured image
   final TransformationController _transformationController = TransformationController();
 
   @override
@@ -80,30 +82,45 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.inactive) {
       cameraService.pausePreview();
     } else if (state == AppLifecycleState.resumed) {
-      // Only resume if we are NOT in frozen mode
       if (!_isFrozen) {
         cameraService.resumePreview();
       }
     }
   }
 
-  void _onFreezePressed() {
+  Future<void> _onFreezePressed() async {
     HapticFeedback.mediumImpact();
     final cameraService = context.read<CameraService>();
     
     if (_isFrozen) {
-      // If already frozen, resume (Unfreeze)
+      // Resume
       cameraService.resumePreview();
-      setState(() { _isFrozen = false; });
-    } else {
-      // If live, pause (Freeze)
-      cameraService.pausePreview();
-      // Initialize frozen state
-      _transformationController.value = Matrix4.identity(); // Reset matrix to 1.0x (relative to captured frame)
       setState(() { 
-        _isFrozen = true; 
-        _frozenZoom = cameraService.currentZoom; // Start at current hardware zoom
+        _isFrozen = false; 
+        _capturedImage = null; // Clear captured image
       });
+    } else {
+      // FREEZE: Take picture immediately!
+      try {
+        final file = await cameraService.takePicture();
+        if (file == null) return;
+
+        // Pause preview after capture to stop battery drain (optional, but good)
+        cameraService.pausePreview();
+        
+        // Initialize frozen state
+        _transformationController.value = Matrix4.identity();
+        
+        if (mounted) {
+          setState(() { 
+            _isFrozen = true; 
+            _capturedImage = file;
+            _frozenZoom = cameraService.currentZoom; 
+          });
+        }
+      } catch (e) {
+        print("Capture failed: $e");
+      }
     }
   }
 
@@ -111,21 +128,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     HapticFeedback.mediumImpact();
     final cameraService = context.read<CameraService>();
     
-    // Capture the image for OCR processing
-    final file = await cameraService.takePicture();
-    
-    if (file != null && mounted) {
+    // Use the ALREADY CAPTURED image!
+    if (_capturedImage != null && mounted) {
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => SmartModeScreen(
-          initialImagePath: file.path, 
+          initialImagePath: _capturedImage!.path, 
         )),
       );
       
-      // When returning from Smart Mode, resume camera
+      // When returning, resume
       if (mounted) {
         cameraService.resumePreview();
-        setState(() { _isFrozen = false; });
+        setState(() { 
+          _isFrozen = false; 
+          _capturedImage = null;
+        });
       }
     }
   }
@@ -207,10 +225,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   // FROZEN MODE: InteractiveViewer (Software Zoom with Focal Point)
                   else {
                     // Calculate max interactive scale relative to capture zoom
-                    // Total Zoom = CaptureZoom * InteractiveScale
-                    // Max InteractiveScale = MaxTotalZoom / CaptureZoom
                     final captureZoom = camera.currentZoom < 1.0 ? 1.0 : camera.currentZoom;
                     final maxInteractiveScale = camera.maxZoom / captureZoom;
+                    
+                    // Safety check
+                    if (_capturedImage == null) return const SizedBox.shrink();
 
                     return InteractiveViewer(
                       transformationController: _transformationController,
@@ -223,7 +242,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         final currentScale = _transformationController.value.getMaxScaleOnAxis();
                         final totalZoom = captureZoom * currentScale;
                          
-                        // Only update state if significantly changed to avoid rebuild spam
                         if ((totalZoom - _frozenZoom).abs() > 0.1) {
                            setState(() { _frozenZoom = totalZoom; });
                         }
@@ -233,9 +251,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           scale: structuralScale,
                           alignment: Alignment.center,
                           child: Center(
-                            // RepaintBoundary helps avoid repainting camera texture during pan/zoom
-                            child: RepaintBoundary(
-                              child: CameraPreview(camera.controller!),
+                            child: Image.file(
+                               File(_capturedImage!.path), 
+                               // fit: BoxFit.contain (default) matches the preview logic's expectation
+                               // We rely on structuralScale to "Cover" the screen.
                             ),
                           ),
                         ),
