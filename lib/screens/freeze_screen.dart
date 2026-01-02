@@ -21,10 +21,26 @@ class _FreezeScreenState extends State<FreezeScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize slider value to the camera's zoom level at capture time.
-    // visually, the image is at "1.0x relation to screen" (due to BoxFit.cover),
-    // but logically it represents the 'initialZoom' level.
+    // Initialize slider value
     _currentScale = widget.initialZoom;
+    
+    // Apply the initial digital zoom to the matrix
+    // Since the child is already 'Covered' (visual 1.0x), applying scale 2.0 makes it look 2.0x.
+    // We must center the zoom.
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.initialZoom > 1.0) {
+        final double cx = MediaQuery.of(context).size.width / 2;
+        final double cy = MediaQuery.of(context).size.height / 2;
+        
+        final Matrix4 matrix = Matrix4.identity();
+        matrix.translate(cx, cy);
+        matrix.scale(widget.initialZoom);
+        matrix.translate(-cx, -cy);
+        
+        _transformationController.value = matrix;
+      }
+    });
   }
 
   @override
