@@ -95,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_isFrozen) {
       // Resume
       cameraService.resumePreview();
+      await cameraService.setZoom(1.0); // Reset Zoom
       setState(() { 
         _isFrozen = false; 
         _capturedImage = null; // Clear captured image
@@ -137,9 +138,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         )),
       );
       
-      // When returning, resume
+      // When returning, resume and reset zoom
       if (mounted) {
         cameraService.resumePreview();
+        await cameraService.setZoom(1.0); // Reset Zoom
         setState(() { 
           _isFrozen = false; 
           _capturedImage = null;
