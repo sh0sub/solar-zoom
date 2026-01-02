@@ -296,77 +296,90 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
           else 
              const Center(child: CircularProgressIndicator()), // Should always have image or be processing
 
-          // 2. Overlay Layer (Close Button)
-          Positioned(
-            top: 50, left: 20,
-            child: SizedBox(
-               width: 50, height: 50,
-               child: IconButton(
-                icon: const Icon(Icons.close, size: 32, color: Colors.white),
-                style: IconButton.styleFrom(backgroundColor: Colors.black45, shape: const CircleBorder()),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ),
+
             
-          // Zoom Slider Overlay
+          // Unified Controls Overlay (Matching HomeScreen)
           if (_capturedImage != null)
-              Positioned(
-                bottom: 150, 
-                left: 20, 
-                right: 20,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(30)
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 32, color: Colors.white),
-                        onPressed: () {
-                           HapticFeedback.mediumImpact();
-                           final newScale = (_currentScale - 0.5).clamp(1.0, 5.0);
-                           _updateZoom(newScale);
-                        },
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: _currentScale,
-                          min: 1.0,
-                          max: 5.0,
-                          activeColor: Theme.of(context).primaryColor,
-                          inactiveColor: Colors.white24,
-                          onChanged: (value) {
-                            _updateZoom(value);
-                          },
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 32, color: Colors.white),
-                        onPressed: () {
-                           HapticFeedback.mediumImpact();
-                           final newScale = (_currentScale + 0.5).clamp(1.0, 5.0);
-                           _updateZoom(newScale);
-                        },
-                      ),
-                    ],
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.only(
+                  bottom: 32 + MediaQuery.of(context).padding.bottom, 
+                  top: 20, 
+                  left: 24, 
+                  right: 24
+                ),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black, Colors.transparent],
                   ),
                 ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Zoom Slider
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, size: 36),
+                          color: Theme.of(context).primaryColor,
+                          onPressed: () {
+                             HapticFeedback.mediumImpact();
+                             final newScale = (_currentScale - 0.5).clamp(1.0, 5.0);
+                             _updateZoom(newScale);
+                          },
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: _currentScale,
+                            min: 1.0,
+                            max: 5.0,
+                            activeColor: Theme.of(context).primaryColor,
+                            inactiveColor: Colors.grey, // Context: Black bg, so this works
+                            onChanged: (value) {
+                              _updateZoom(value);
+                            },
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, size: 36),
+                          color: Theme.of(context).primaryColor,
+                          onPressed: () {
+                             HapticFeedback.mediumImpact();
+                             final newScale = (_currentScale + 0.5).clamp(1.0, 5.0);
+                             _updateZoom(newScale);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Modern Control Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Retake Button (Left)
+                        _buildModernButton(
+                          context,
+                          icon: Icons.refresh,
+                          label: "다시 찍기",
+                          onTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                        ),
+                        
+                        // Right side placeholder or nothing? 
+                        // HomeScreen has "Read Text" on right. 
+                        // To balance the layout, we could put empty SizedBox or nothing.
+                        const SizedBox(width: 64),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            
-          // Retake Button
-          if (_capturedImage != null)
-             Positioned(
-              bottom: 50, right: 20,
-              child: TextButton.icon(
-                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst), // Pop back to Home
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                label: const Text("다시 찍기", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                style: TextButton.styleFrom(backgroundColor: Colors.black45, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-              )
-             ),
+            ),
 
           // Loading Indicator
           if (_isProcessing)
@@ -383,6 +396,53 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModernButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isActive = false,
+    bool isMain = false,
+  }) {
+    final theme = Theme.of(context);
+    final color = isMain ? theme.primaryColor : (isActive ? theme.primaryColor : theme.colorScheme.surface);
+    final iconColor = isMain ? Colors.white : (isActive ? Colors.white : Colors.white70);
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: isMain ? 80 : 64,
+            height: isMain ? 80 : 64,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(24), 
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: iconColor, size: isMain ? 40 : 32),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.white, 
+            ),
+          ),
         ],
       ),
     );

@@ -403,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                              _buildModernButton(
                               context,
                               icon: Icons.refresh,
-                              label: "다시 보기",
+                              label: "다시 찍기",
                               onTap: _onFreezePressed,
                             ),
                           
