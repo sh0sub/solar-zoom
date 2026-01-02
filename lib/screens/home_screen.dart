@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:senior_magnifier/l10n/app_localizations.dart';
 import 'package:senior_magnifier/screens/smart_mode_screen.dart';
 import 'package:senior_magnifier/services/camera_service.dart';
 
@@ -164,6 +165,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Access localization
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Consumer<CameraService>(
         builder: (context, camera, child) {
@@ -330,8 +334,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 // Update Matrix
                                 final captureZoom = camera.currentZoom < 1.0 ? 1.0 : camera.currentZoom;
                                 final targetScale = newZ / captureZoom;
-                                // Simple center zoom: Reset to identity logic for slider?
-                                // Better: Preserve translation if possible? No, slider typically centers.
                                 final matrix = Matrix4.identity()..scale(targetScale);
                                 _transformationController.value = matrix;
                                 
@@ -404,24 +406,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               icon: camera.flashMode == FlashMode.torch 
                                   ? Icons.flash_on 
                                   : Icons.flash_off,
-                              label: "조명",
+                              label: camera.flashMode == FlashMode.torch ? l10n.flashOn : l10n.flashOff,
                               isActive: camera.flashMode == FlashMode.torch,
                               onTap: _onFlashPressed,
                             )
                           else
                              _buildModernButton(
-                              context,
-                              icon: Icons.refresh,
-                              label: "다시 찍기",
-                              onTap: _onFreezePressed,
-                            ),
+                               context,
+                               icon: Icons.refresh,
+                               label: l10n.retake,
+                               onTap: _onFreezePressed,
+                             ),
                           
                           // 2. Freeze / Read
                           if (!_isFrozen)
                             _buildModernButton(
                               context,
                               icon: Icons.pause, // Pause icon
-                              label: "멈춤",
+                              label: l10n.freeze,
                               isMain: true,
                               onTap: _onFreezePressed,
                             )
@@ -429,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             _buildModernButton(
                               context,
                               icon: Icons.search,
-                              label: "글자 읽기",
+                              label: l10n.readText,
                               isMain: true,
                               onTap: _onReadTextPressed,
                             ),

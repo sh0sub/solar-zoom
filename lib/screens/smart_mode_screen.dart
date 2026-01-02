@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:senior_magnifier/l10n/app_localizations.dart';
 import 'package:senior_magnifier/services/ocr_service.dart';
 import 'package:senior_magnifier/services/tts_service.dart';
 
@@ -31,6 +32,9 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
   // State for image dimensions
   Size? _imageSize; // Original image size
   double _currentScale = 1.0; 
+  
+  // Cache l10n to access in non-build methods if needed, 
+  // but usually context is enough if mounted.
 
   @override
   void initState() {
@@ -41,7 +45,11 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
     });
 
     if (widget.initialImagePath != null) {
-      _processInitialImage(widget.initialImagePath!);
+      // Defer processing slightly to ensure context is valid for Localizations?
+      // Actually standard async is usually fine, but let's be safe.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _processInitialImage(widget.initialImagePath!);
+      });
     }
   }
 
@@ -76,12 +84,15 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
         _isProcessing = false;
       });
 
+      // Get localization
+      final l10n = AppLocalizations.of(context)!;
+
       if (text == null || text.text.isEmpty) {
          ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("글자를 찾을 수 없어요.", style: TextStyle(fontSize: 20))),
+           SnackBar(content: Text(l10n.noTextFound, style: const TextStyle(fontSize: 20))),
          );
       } else {
-         _ttsService.speak("원하는 글자를 터치하면 읽어드립니다.");
+         _ttsService.speak(l10n.touchToRead);
       }
     }
   }
@@ -157,7 +168,8 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
 
   void _showResultSheet(String text) {
     // Play guidance voice immediately
-    _ttsService.speak("글자를 찾았습니다. 내용을 확인하세요.");
+    final l10n = AppLocalizations.of(context)!;
+    _ttsService.speak(l10n.textFound);
 
     showModalBottomSheet(
       context: context,
@@ -194,7 +206,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("읽은 내용", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black, fontWeight: FontWeight.bold)),
+                          Text(l10n.resultTitle, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black, fontWeight: FontWeight.bold)),
                           IconButton(
                             icon: const Icon(Icons.close, color: Colors.black54, size: 28),
                             onPressed: () => Navigator.pop(context),
@@ -237,7 +249,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                           },
                           icon: Icon(isPlaying ? Icons.stop_circle : Icons.volume_up, size: 28),
                           label: Text(
-                            isPlaying ? "멈추기" : "소리로 듣기", 
+                            isPlaying ? l10n.stop : l10n.listen, 
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)
                           ),
                           style: ElevatedButton.styleFrom(
@@ -264,6 +276,9 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get Localization
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -294,8 +309,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
               },
             )
           else 
-             const Center(child: CircularProgressIndicator()), // Should always have image or be processing
-
+             const Center(child: CircularProgressIndicator()), 
 
             
           // Unified Controls Overlay (Matching HomeScreen)
@@ -366,13 +380,11 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                         _buildModernButton(
                           context,
                           icon: Icons.refresh,
-                          label: "다시 찍기",
+                          label: l10n.retake,
                           onTap: () => Navigator.of(context).popUntil((route) => route.isFirst),
                         ),
                         
-                        // Right side placeholder or nothing? 
-                        // HomeScreen has "Read Text" on right. 
-                        // To balance the layout, we could put empty SizedBox or nothing.
+                        // Right side placeholder
                         const SizedBox(width: 64),
                       ],
                     ),
@@ -391,7 +403,7 @@ class _SmartModeScreenState extends State<SmartModeScreen> {
                   children: [
                     CircularProgressIndicator(color: Theme.of(context).primaryColor),
                     const SizedBox(height: 24),
-                    Text("글자를 읽고 있어요...", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
+                    Text(l10n.readingProgress, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
                   ],
                 ),
               ),
