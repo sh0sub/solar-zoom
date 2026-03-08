@@ -34,19 +34,18 @@ class CameraService extends ChangeNotifier {
         );
 
         await _controller!.initialize();
-        
+
         _minZoom = await _controller!.getMinZoomLevel();
-        if (_minZoom < 1.0) _minZoom = 1.0; // Restrict ultra-wide (0.5x) to prevent confusion
+        if (_minZoom < 1.0)
+          _minZoom = 1.0; // Restrict ultra-wide (0.5x) to prevent confusion
         _maxZoom = await _controller!.getMaxZoomLevel();
         // Cap max zoom to avoid extreme graininess
-        if (_maxZoom > 8.0) _maxZoom = 8.0; 
+        if (_maxZoom > 8.0) _maxZoom = 8.0;
 
         _isInitialized = true;
         notifyListeners();
       }
-    } catch (e) {
-      print('Camera initialization failed: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> setZoom(double zoom) async {
@@ -65,9 +64,7 @@ class CameraService extends ChangeNotifier {
       await _controller!.setFocusMode(FocusMode.auto);
       await _controller!.setFocusPoint(point);
       // await _controller!.setExposurePoint(point); // Disabled to prevent darkening when tapping bright areas
-    } catch (e) {
-      print('Focus set error: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> toggleFlash() async {
@@ -78,7 +75,7 @@ class CameraService extends ChangeNotifier {
     } else {
       _flashMode = FlashMode.off;
     }
-    
+
     await _controller!.setFlashMode(_flashMode);
     notifyListeners();
   }
@@ -89,8 +86,7 @@ class CameraService extends ChangeNotifier {
 
     try {
       return await _controller!.takePicture();
-    } catch (e) {
-      print('Error taking picture: $e');
+    } catch (_) {
       return null;
     }
   }

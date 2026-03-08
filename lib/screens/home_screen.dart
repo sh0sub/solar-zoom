@@ -26,10 +26,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _requestPermissions() async {
-    final status = await [
-      Permission.camera,
-      Permission.microphone,
-    ].request();
+    final status = await [Permission.camera, Permission.microphone].request();
 
     if (status[Permission.camera] == PermissionStatus.granted &&
         status[Permission.microphone] == PermissionStatus.granted) {
@@ -43,7 +40,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           barrierDismissible: false,
           builder: (context) => AlertDialog(
             title: const Text("권한 필요"),
-            content: const Text("앱을 사용하려면 카메라와 마이크 권한이 꼭 필요합니다.\n설정에서 권한을 허용해 주세요."),
+            content: const Text(
+              "앱을 사용하려면 카메라와 마이크 권한이 꼭 필요합니다.\n설정에서 권한을 허용해 주세요.",
+            ),
             actions: [
               TextButton(
                 onPressed: () => openAppSettings(),
@@ -68,12 +67,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Timer? _focusTimer;
   double _baseZoom = 1.0;
   bool _isScaling = false;
-  
+
   // New State: Freeze Mode
   bool _isFrozen = false;
-  double _frozenZoom = 1.0; 
+  double _frozenZoom = 1.0;
   XFile? _capturedImage; // Store the frozen captured image
-  final TransformationController _transformationController = TransformationController();
+  final TransformationController _transformationController =
+      TransformationController();
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -92,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _onFreezePressed() async {
     HapticFeedback.mediumImpact();
     final cameraService = context.read<CameraService>();
-    
+
     if (_isFrozen) {
       // Resume
       // Run Zoom Reset and Resume in parallel to minimize delay/stutter
@@ -100,10 +100,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         cameraService.setZoom(1.0),
         cameraService.resumePreview(),
       ]);
-      
-      setState(() { 
-        _isFrozen = false; 
-        _capturedImage = null; 
+
+      setState(() {
+        _isFrozen = false;
+        _capturedImage = null;
       });
     } else {
       // FREEZE: Take picture immediately!
@@ -113,45 +113,44 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
         // Pause preview after capture to stop battery drain
         cameraService.pausePreview();
-        
+
         // Initialize frozen state
         _transformationController.value = Matrix4.identity();
-        
+
         if (mounted) {
-          setState(() { 
-            _isFrozen = true; 
+          setState(() {
+            _isFrozen = true;
             _capturedImage = file;
-            _frozenZoom = cameraService.currentZoom; 
+            _frozenZoom = cameraService.currentZoom;
           });
         }
-      } catch (e) {
-        print("Capture failed: $e");
-      }
+      } catch (_) {}
     }
   }
 
   void _onReadTextPressed() async {
     HapticFeedback.mediumImpact();
     final cameraService = context.read<CameraService>();
-    
+
     // Use the ALREADY CAPTURED image!
     if (_capturedImage != null && mounted) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => SmartModeScreen(
-          initialImagePath: _capturedImage!.path, 
-        )),
+        MaterialPageRoute(
+          builder: (context) =>
+              SmartModeScreen(initialImagePath: _capturedImage!.path),
+        ),
       );
-      
+
       // When returning, resume and reset zoom parallel
       if (mounted) {
         await Future.wait([
           cameraService.setZoom(1.0),
           cameraService.resumePreview(),
         ]);
-        
-        setState(() { 
-          _isFrozen = false; 
+
+        setState(() {
+          _isFrozen = false;
           _capturedImage = null;
         });
       }
@@ -182,18 +181,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final size = MediaQuery.of(context).size;
-                  
+
                   // Base structural scale (Aspect Ratio Cover)
-                  var structuralScale = size.aspectRatio * camera.controller!.value.aspectRatio;
-                  if (structuralScale < 1) structuralScale = 1 / structuralScale;
-                  
+                  var structuralScale =
+                      size.aspectRatio * camera.controller!.value.aspectRatio;
+                  if (structuralScale < 1)
+                    structuralScale = 1 / structuralScale;
+
                   // LIVE MODE: Gesture Detector (Hardware Zoom)
                   if (!_isFrozen) {
                     return GestureDetector(
                       onScaleStart: (details) {
                         _isScaling = true;
                         _baseZoom = camera.currentZoom;
-                        if (_showFocus) setState(() { _showFocus = false; });
+                        if (_showFocus)
+                          setState(() {
+                            _showFocus = false;
+                          });
                       },
                       onScaleUpdate: (details) {
                         double newZoom = _baseZoom * details.scale;
@@ -220,7 +224,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         });
                         _focusTimer?.cancel();
                         _focusTimer = Timer(const Duration(seconds: 2), () {
-                          if (mounted) setState(() { _showFocus = false; });
+                          if (mounted)
+                            setState(() {
+                              _showFocus = false;
+                            });
                         });
                       },
                       child: ClipRect(
@@ -234,29 +241,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     );
                   }
-                  
                   // FROZEN MODE: InteractiveViewer (Software Zoom with Focal Point)
                   else {
                     // Calculate max interactive scale relative to capture zoom
-                    final captureZoom = camera.currentZoom < 1.0 ? 1.0 : camera.currentZoom;
+                    final captureZoom = camera.currentZoom < 1.0
+                        ? 1.0
+                        : camera.currentZoom;
                     final maxInteractiveScale = camera.maxZoom / captureZoom;
-                    
+
                     // Safety check
                     if (_capturedImage == null) return const SizedBox.shrink();
 
                     return InteractiveViewer(
                       transformationController: _transformationController,
                       minScale: 1.0,
-                      maxScale: maxInteractiveScale < 1.0 ? 1.0 : maxInteractiveScale,
+                      maxScale: maxInteractiveScale < 1.0
+                          ? 1.0
+                          : maxInteractiveScale,
                       panEnabled: true,
                       scaleEnabled: true,
                       onInteractionUpdate: (details) {
                         // Sync: Update _frozenZoom based on current matrix scale
-                        final currentScale = _transformationController.value.getMaxScaleOnAxis();
+                        final currentScale = _transformationController.value
+                            .getMaxScaleOnAxis();
                         final totalZoom = captureZoom * currentScale;
-                         
+
                         if ((totalZoom - _frozenZoom).abs() > 0.1) {
-                           setState(() { _frozenZoom = totalZoom; });
+                          setState(() {
+                            _frozenZoom = totalZoom;
+                          });
                         }
                       },
                       child: ClipRect(
@@ -265,9 +278,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           alignment: Alignment.center,
                           child: Center(
                             child: Image.file(
-                               File(_capturedImage!.path), 
-                               // fit: BoxFit.contain (default) matches the preview logic's expectation
-                               // We rely on structuralScale to "Cover" the screen.
+                              File(_capturedImage!.path),
+                              // fit: BoxFit.contain (default) matches the preview logic's expectation
+                              // We rely on structuralScale to "Cover" the screen.
                             ),
                           ),
                         ),
@@ -290,7 +303,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       size: 70,
                       color: Theme.of(context).primaryColor,
                       shadows: [
-                          Shadow(blurRadius: 10, color: Colors.black.withOpacity(0.5), offset: const Offset(0, 2))
+                        Shadow(
+                          blurRadius: 10,
+                          color: Colors.black.withOpacity(0.5),
+                          offset: const Offset(0, 2),
+                        ),
                       ],
                     ),
                   ),
@@ -303,10 +320,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 right: 0,
                 child: Container(
                   padding: EdgeInsets.only(
-                    bottom: 32 + MediaQuery.of(context).padding.bottom, 
-                    top: 20, 
-                    left: 24, 
-                    right: 24
+                    bottom: 32 + MediaQuery.of(context).padding.bottom,
+                    top: 20,
+                    left: 24,
+                    right: 24,
                   ),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
@@ -322,22 +339,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, size: 36),
+                            icon: const Icon(
+                              Icons.remove_circle_outline,
+                              size: 36,
+                            ),
                             color: Theme.of(context).primaryColor,
                             onPressed: () {
                               HapticFeedback.mediumImpact();
                               if (_isFrozen) {
                                 // Zoom Out Logic for Frozen State
                                 double newZ = _frozenZoom - 0.5;
-                                if (newZ < camera.currentZoom) newZ = camera.currentZoom; // Limit to captured zoom
+                                if (newZ < camera.currentZoom)
+                                  newZ = camera
+                                      .currentZoom; // Limit to captured zoom
 
                                 // Update Matrix
-                                final captureZoom = camera.currentZoom < 1.0 ? 1.0 : camera.currentZoom;
+                                final captureZoom = camera.currentZoom < 1.0
+                                    ? 1.0
+                                    : camera.currentZoom;
                                 final targetScale = newZ / captureZoom;
-                                final matrix = Matrix4.identity()..scale(targetScale);
+                                final matrix = Matrix4.identity()
+                                  ..scale(targetScale);
                                 _transformationController.value = matrix;
-                                
-                                setState(() { _frozenZoom = newZ; });
+
+                                setState(() {
+                                  _frozenZoom = newZ;
+                                });
                               } else {
                                 camera.setZoom(camera.currentZoom - 0.5);
                               }
@@ -345,25 +372,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                           Expanded(
                             child: Slider(
-                              value: _isFrozen ? _frozenZoom : camera.currentZoom,
+                              value: _isFrozen
+                                  ? _frozenZoom
+                                  : camera.currentZoom,
                               min: camera.minZoom,
                               max: camera.maxZoom,
                               activeColor: Theme.of(context).primaryColor,
-                              inactiveColor: Theme.of(context).colorScheme.surface,
+                              inactiveColor: Theme.of(
+                                context,
+                              ).colorScheme.surface,
                               onChanged: (value) {
                                 if (_isFrozen) {
                                   // Slider Sync Logic
-                                  final captureZoom = camera.currentZoom < 1.0 ? 1.0 : camera.currentZoom;
+                                  final captureZoom = camera.currentZoom < 1.0
+                                      ? 1.0
+                                      : camera.currentZoom;
                                   // Limit: Cannot zoom out below what was captured
                                   if (value < captureZoom) value = captureZoom;
-                                  
+
                                   final targetScale = value / captureZoom;
-                                  
+
                                   // Reset to center zoom for Slider interaction
-                                  final matrix = Matrix4.identity()..scale(targetScale);
+                                  final matrix = Matrix4.identity()
+                                    ..scale(targetScale);
                                   _transformationController.value = matrix;
-                                  
-                                  setState(() { _frozenZoom = value; });
+
+                                  setState(() {
+                                    _frozenZoom = value;
+                                  });
                                 } else {
                                   camera.setZoom(value);
                                 }
@@ -371,21 +407,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add_circle_outline, size: 36),
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              size: 36,
+                            ),
                             color: Theme.of(context).primaryColor,
                             onPressed: () {
                               HapticFeedback.mediumImpact();
                               if (_isFrozen) {
                                 // Zoom In Logic for Frozen State
                                 double newZ = _frozenZoom + 0.5;
-                                if (newZ > camera.maxZoom) newZ = camera.maxZoom;
-                                
-                                final captureZoom = camera.currentZoom < 1.0 ? 1.0 : camera.currentZoom;
+                                if (newZ > camera.maxZoom)
+                                  newZ = camera.maxZoom;
+
+                                final captureZoom = camera.currentZoom < 1.0
+                                    ? 1.0
+                                    : camera.currentZoom;
                                 final targetScale = newZ / captureZoom;
-                                final matrix = Matrix4.identity()..scale(targetScale);
+                                final matrix = Matrix4.identity()
+                                  ..scale(targetScale);
                                 _transformationController.value = matrix;
-                                
-                                setState(() { _frozenZoom = newZ; });
+
+                                setState(() {
+                                  _frozenZoom = newZ;
+                                });
                               } else {
                                 camera.setZoom(camera.currentZoom + 0.5);
                               }
@@ -394,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      
+
                       // Modern Control Bar
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -403,21 +448,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           if (!_isFrozen)
                             _buildModernButton(
                               context,
-                              icon: camera.flashMode == FlashMode.torch 
-                                  ? Icons.flash_on 
+                              icon: camera.flashMode == FlashMode.torch
+                                  ? Icons.flash_on
                                   : Icons.flash_off,
-                              label: camera.flashMode == FlashMode.torch ? l10n.flashOn : l10n.flashOff,
+                              label: camera.flashMode == FlashMode.torch
+                                  ? l10n.flashOn
+                                  : l10n.flashOff,
                               isActive: camera.flashMode == FlashMode.torch,
                               onTap: _onFlashPressed,
                             )
                           else
-                             _buildModernButton(
-                               context,
-                               icon: Icons.refresh,
-                               label: l10n.retake,
-                               onTap: _onFreezePressed,
-                             ),
-                          
+                            _buildModernButton(
+                              context,
+                              icon: Icons.refresh,
+                              label: l10n.retake,
+                              onTap: _onFreezePressed,
+                            ),
+
                           // 2. Freeze / Read
                           if (!_isFrozen)
                             _buildModernButton(
@@ -435,7 +482,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               isMain: true,
                               onTap: _onReadTextPressed,
                             ),
-                          
+
                           const SizedBox(width: 64),
                         ],
                       ),
@@ -459,9 +506,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     bool isMain = false,
   }) {
     final theme = Theme.of(context);
-    final color = isMain ? theme.primaryColor : (isActive ? theme.primaryColor : theme.colorScheme.surface);
-    final iconColor = isMain ? Colors.white : (isActive ? Colors.white : Colors.white70);
-    
+    final color = isMain
+        ? theme.primaryColor
+        : (isActive ? theme.primaryColor : theme.colorScheme.surface);
+    final iconColor = isMain
+        ? Colors.white
+        : (isActive ? Colors.white : Colors.white70);
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
