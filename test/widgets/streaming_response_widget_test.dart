@@ -11,16 +11,14 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );
 
       // Should show empty or loading state initially
       expect(find.byType(StreamingResponseWidget), findsOneWidget);
-      
+
       controller.close();
     });
 
@@ -30,9 +28,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );
@@ -58,9 +54,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );
@@ -79,7 +73,9 @@ void main() {
       controller.close();
     });
 
-    testWidgets('should show loading indicator while streaming', (tester) async {
+    testWidgets('should show loading indicator while streaming', (
+      tester,
+    ) async {
       final controller = StreamController<String>();
 
       await tester.pumpWidget(
@@ -107,13 +103,12 @@ void main() {
 
     testWidgets('should handle stream errors gracefully', (tester) async {
       final controller = StreamController<String>();
+      const genericErrorMessage = '오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );
@@ -122,7 +117,11 @@ void main() {
       await tester.pump();
 
       // Should display error message
-      expect(find.textContaining('error'), findsOneWidget, reason: 'Should show error state');
+      expect(
+        find.text(genericErrorMessage),
+        findsOneWidget,
+        reason: 'Should show generic error state',
+      );
 
       controller.close();
     });
@@ -133,9 +132,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );
@@ -184,9 +181,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller1.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller1.stream),
           ),
         ),
       );
@@ -201,9 +196,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller2.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller2.stream),
           ),
         ),
       );
@@ -232,9 +225,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );
@@ -242,7 +233,11 @@ void main() {
       // Remove widget
       await tester.pumpWidget(Container());
 
-      expect(subscriptionCancelled, isTrue, reason: 'Stream subscription should be cancelled on dispose');
+      expect(
+        subscriptionCancelled,
+        isTrue,
+        reason: 'Stream subscription should be cancelled on dispose',
+      );
 
       controller.close();
     });
@@ -253,9 +248,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: StreamingResponseWidget(
-              stream: controller.stream,
-            ),
+            body: StreamingResponseWidget(stream: controller.stream),
           ),
         ),
       );

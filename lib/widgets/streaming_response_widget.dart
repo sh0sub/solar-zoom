@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// 스트리밍 응답 위젯
-/// 
+///
 /// 실시간으로 텍스트 청크를 받아서 화면에 표시
 /// AI 응답이 스트리밍되는 동안 실시간 업데이트
 class StreamingResponseWidget extends StatefulWidget {
@@ -28,6 +28,8 @@ class StreamingResponseWidget extends StatefulWidget {
 }
 
 class _StreamingResponseWidgetState extends State<StreamingResponseWidget> {
+  static const String _genericErrorMessage = '오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+
   final StringBuffer _buffer = StringBuffer();
   StreamSubscription<String>? _subscription;
   bool _isLoading = true;
@@ -42,7 +44,7 @@ class _StreamingResponseWidgetState extends State<StreamingResponseWidget> {
   @override
   void didUpdateWidget(StreamingResponseWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // 스트림이 변경되면 재구독
     if (widget.stream != oldWidget.stream) {
       _subscription?.cancel();
@@ -64,7 +66,7 @@ class _StreamingResponseWidgetState extends State<StreamingResponseWidget> {
       },
       onError: (error) {
         setState(() {
-          _errorMessage = '오류가 발생했습니다: ${error.toString()}';
+          _errorMessage = _genericErrorMessage;
           _isLoading = false;
         });
       },
@@ -90,10 +92,7 @@ class _StreamingResponseWidgetState extends State<StreamingResponseWidget> {
         padding: const EdgeInsets.all(16.0),
         child: Text(
           _errorMessage!,
-          style: TextStyle(
-            color: Colors.red[700],
-            fontSize: 16,
-          ),
+          style: TextStyle(color: Colors.red[700], fontSize: 16),
         ),
       );
     }
@@ -113,12 +112,9 @@ class _StreamingResponseWidgetState extends State<StreamingResponseWidget> {
       padding: const EdgeInsets.all(16.0),
       child: Text(
         _buffer.toString(),
-        style: widget.textStyle ??
-            const TextStyle(
-              fontSize: 18,
-              height: 1.5,
-              color: Colors.black87,
-            ),
+        style:
+            widget.textStyle ??
+            const TextStyle(fontSize: 18, height: 1.5, color: Colors.black87),
       ),
     );
   }
